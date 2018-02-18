@@ -6,36 +6,32 @@
 d3.gantt = function () {
   var actualEnd;
   var timeDomainStart = 0;
-  var timeDomainEnd = 10000;
+  var timeDomainEnd = 10;
+  var diff = 10;
+  const dragFactor = 200;
+  var diffFactor = 100;
 
   var taskTypes = [];
   var taskStatus = [];
 
+  //Default size
   var WIDTH = 1400;
   var HEIGHT = 900;
-  const BORDER = 100;
+  const MARGIN = 100;
   const GAP = 60;
   const SLOTHEIGHT = 50;
   var startZoomK;
+  var brushHeight = 60;
+  var brushScaleX, brushScaleY;
 
   var margin = {
     top: 20,
-    right: BORDER,
-    bottom: 20,
-    left: BORDER
+    right: MARGIN,
+    bottom: 50,
+    left: MARGIN
   };
+  var unitsTime = ["ps", "ns", "μs", "ms", "s", "min"];
 
-  var diff = 100000;
-  var miniHeight = 60;
-  var x2, y2;
-
-  var keyFunction = function (d) {
-    if (d) {
-      return d.startDate + d.taskName + d.endDate;
-    } else {
-      console.log(d);
-    }
-  };
 
   var rectTransform = function (d) {
     if (d)
@@ -47,47 +43,90 @@ d3.gantt = function () {
   var context;
   var brush;
   var zoom;
-
+  var unit;
   var svg, elMain, elDragZone, elContainer, elAxisX, elAxisY, elDateStartAll, mini;
   var dateStartAll = 0;
 
   var initTimeDomain = function () {
     if (tasks === undefined || tasks.length < 1) {
       timeDomainStart = 0;
-      timeDomainEnd = 1000;
+      setEndTime(1000);
       return;
     }
 
-    timeDomainEnd = tasks[tasks.length - 1].endDate;
+    setEndTime(tasks[tasks.length - 1].endDate);
     timeDomainStart = tasks[0].startDate;
     actualEnd = timeDomainEnd;
     navStart = timeDomainStart;
     navEnd = timeDomainEnd;
-    diff = actualEnd / 150;
+
+
+
+
   };
+
+  function setEndTime(t) {
+    timeDomainEnd = t;
+    setTimeUnit(timeDomainEnd);
+    diff = (timeDomainEnd - timeDomainStart) / diffFactor;
+    // console.log(diff);
+  }
+  function setTimeUnit(t) {
+
+    unit = getTimeUnit(t);
+  }
+
 
   function initAxis() {
 
     var elChart = d3.select('#chart').node();
     WIDTH = elChart.getBoundingClientRect().width;
     HEIGHT = elChart.getBoundingClientRect().height;
-    miniHeight = taskNames.length * 12;
+    brushHeight = taskNames.length * 12;
 
     // scaleX = d3.scaleTime().domain([timeDomainStart, timeDomainEnd]).range([0, WIDTH - BORDER * 2]).clamp(true);
-    scaleX = d3.scaleLinear().domain([timeDomainStart, timeDomainEnd]).range([0, WIDTH - BORDER * 2]).clamp(true);
+    scaleX = d3.scaleLinear().domain([timeDomainStart, timeDomainEnd]).range([0, WIDTH - MARGIN * 2]).clamp(true);
 
-    scaleY = d3.scaleBand().domain(taskTypes).padding(.5).rangeRound([0, HEIGHT - (BORDER * 2) - miniHeight], .1);
+    scaleY = d3.scaleBand().domain(taskTypes).padding(.5).rangeRound([0, HEIGHT - (MARGIN * 2) - brushHeight], .1);
 
-    axisX = d3.axisBottom(scaleX).tickSizeInner(-HEIGHT + BORDER * 2).tickFormat(function (d) { return d + " PS"; })
+    axisX = d3.axisBottom(scaleX).tickSizeInner(-HEIGHT + MARGIN * 2).tickFormat(function (d) {
+
+      var num = picosecondTo(unit, d);
+      return num + " " + unit;
+    })
       .tickSize(8).tickPadding(8);
-    axisY = d3.axisLeft().scale(scaleY).tickSizeInner(-WIDTH + BORDER * 2);
+    axisY = d3.axisLeft().scale(scaleY).tickSizeInner(-WIDTH + MARGIN * 2);
 
 
-    x2 = d3.scaleLinear().domain([0, actualEnd]).range([0, WIDTH - BORDER * 2]).clamp(true);
-    y2 = d3.scaleBand().domain(taskTypes).range([0, miniHeight]);
+    brushScaleX = d3.scaleLinear().domain([0, actualEnd]).range([0, WIDTH - MARGIN * 2]).clamp(true);
+    brushScaleY = d3.scaleBand().domain(taskTypes).range([0, brushHeight]);
   };
 
+  function getTimeUnit(timeinPs) {
+    var digitGroups = 0;
+    if (timeinPs < 6e+13) {
+      digitGroups = parseInt(Math.log10(timeinPs) / Math.log10(1000));
+    }
+    return unitsTime[digitGroups];
+  }
 
+
+  function picosecondTo(unit, picoseconds) {
+    if (unit === unitsTime[0])
+      return picoseconds;
+    if (unit === unitsTime[1])
+      return picoseconds / 1000;
+    if (unit === unitsTime[2])
+      return picoseconds / 1000000;
+    if (unit === unitsTime[3])
+      return picoseconds / 1000000000;
+    if (unit === unitsTime[4])
+      return picoseconds / 1000000000000;
+    if (unit === unitsTime[5])
+      return 1.66666666667 * picoseconds / 100000000000000;
+    if (unit === unitsTime[6])
+      return 2.77777777778 * picoseconds / 10000000000000000;
+  }
   //Create gantt chart 
   function gantt(tasks) {
 
@@ -112,13 +151,13 @@ d3.gantt = function () {
       .append('clipPath')
       .attr('id', 'clip')
       .append('rect')
-      .attr('width', WIDTH - BORDER * 2)
-      .attr('height', HEIGHT - BORDER * 2)
+      .attr('width', WIDTH - MARGIN * 2)
+      .attr('height', HEIGHT - MARGIN * 2)
       .style('fill', 'red');
 
     elMain = svg.append('g')
       .attr('class', 'main')
-      .attr('transform', 'translate(' + BORDER + ',' + BORDER + ')')
+      .attr('transform', 'translate(' + MARGIN + ',' + MARGIN + ')')
       .call(d3.zoom()
         .on('zoom', scrollZoom))
       .on("dblclick.zoom", null);
@@ -132,16 +171,17 @@ d3.gantt = function () {
 
     elAxisX = elMain.append("g")
       .attr("class", "axis axis--x")
-      .attr("transform", "translate(0, " + (HEIGHT - (BORDER * 2) - miniHeight) + ")")
+      .attr("transform", "translate(0, " + (HEIGHT - (MARGIN * 2) - brushHeight) + ")")
       .call(axisX);
 
     elDragZone = elMain.append('rect')
       .attr('class', 'drag-zone')
       .attr('width', WIDTH - 50 * 2)
-      .attr('height', HEIGHT - BORDER * 2)
+      .attr('height', HEIGHT - MARGIN * 2)
       .attr('clip-path', 'url(#clip)')
       .call(d3.drag()
-        .on('drag', dragProgress));
+        .on('drag', onDragProgress))
+      .on('dblclick', onDoubleClick);
 
     elContainer = elMain.append('g')
       .attr('class', 'container')
@@ -164,23 +204,25 @@ d3.gantt = function () {
 
     mini = svg.append('g')
       .attr('class', 'mini')
-      .attr('transform', 'translate(' + BORDER + ',' + (HEIGHT - BORDER) + ')')
+      .attr('transform', 'translate(' + MARGIN + ',' + (HEIGHT - MARGIN - 40) + ')')
       .attr('width', WIDTH)
-      .attr('height', miniHeight);;
+      .attr('height', brushHeight);;
 
     // create and add y axis to the group
     mini.append('g')
       .attr('class', '_y_axis')
       .attr("transform", "translate(0, 0)")
-      .call(d3.axisLeft().scale(y2).tickSizeInner(20));
+      .call(d3.axisLeft().scale(brushScaleY).tickSizeInner(20));
 
     // create and add x axis to the group
     mini.append("g")
       .attr("class", "_x_axis")
-      .attr("transform", "translate(0, " + (miniHeight) + ")")
-      .call(d3.axisBottom(x2).tickFormat(function (d) {
+      .attr("transform", "translate(0, " + (brushHeight) + ")")
+      .call(d3.axisBottom(brushScaleX).tickFormat(function (d) {
         if (d) {
-          return d;
+          var unit = getTimeUnit(d);
+          var num = picosecondTo(unit, d);
+          return num + " " + unit;
         }
       }));
 
@@ -191,11 +233,11 @@ d3.gantt = function () {
     exitSlots.remove();
     exitSlots.transition().duration(500).attr('opacity', 0);
 
-    const miniSlotHeight = miniHeight / taskNames.length;
+    const miniSlotHeight = brushHeight / taskNames.length;
     const entry = enterSlots.append('g')
       .attr('class', 'mini_slot')
       .attr('transform', function (d) {
-        return "translate(" + x2(d.startDate) + "," + y2(d.taskName) + ")";
+        return "translate(" + brushScaleX(d.startDate) + "," + brushScaleY(d.taskName) + ")";
       });
 
 
@@ -203,13 +245,13 @@ d3.gantt = function () {
       .attr('class', 'mini_zone')
       .attr('x', 0)
       .attr('y', - miniSlotHeight / 4)
-      .attr('width', d => x2(getEnd(d)) - x2(getStart(d)))
+      .attr('width', d => brushScaleX(getEnd(d)) - brushScaleX(getStart(d)))
       .attr('height', miniSlotHeight)
       .style('fill', d => d.color);
 
     // draw the selection area
     brush = d3.brushX()
-      .extent([[0, 0], [WIDTH - BORDER * 2, miniHeight]])
+      .extent([[0, 0], [WIDTH - MARGIN * 2, brushHeight]])
       // .on("end", moveBrush)
       // .on("start brush", brushed)
       .on("end", brushended);
@@ -222,7 +264,7 @@ d3.gantt = function () {
   function brushended() {
     if (!d3.event.sourceEvent) return; // Only transition after input.
     if (!d3.event.selection) return; // Ignore empty selections.
-    const domain = d3.event.selection.map(x2.invert, x2);
+    const domain = d3.event.selection.map(brushScaleX.invert, brushScaleX);
 
     const start = Math.floor(domain[0]);
     const end = Math.ceil(domain[1]);
@@ -250,7 +292,7 @@ d3.gantt = function () {
   function getSlotHeight() {
     const l = taskNames.length;
 
-    return Math.ceil((HEIGHT - 2 * BORDER) / l) - (l > 10 ? 0 : SLOTHEIGHT);
+    return Math.ceil((HEIGHT - 2 * MARGIN) / l) - (l > 10 ? 0 : SLOTHEIGHT);
   }
 
   function createGanttEvent() {
@@ -272,8 +314,8 @@ d3.gantt = function () {
 
     entry.append('rect')
       .attr('class', 'zone')
-      .attr('rx', 5)
-      .attr('ry', 5)
+      .attr('rx', 3)
+      .attr('ry', 3)
       .attr('x', 0)
       .attr('y', - slotHeight / 4)
       .attr('width', d => scaleX(getEnd(d)) - scaleX(getStart(d)))
@@ -297,9 +339,13 @@ d3.gantt = function () {
       .attr('class', 'laneText');
   }
 
-  function dragProgress() {
+  function onDoubleClick() {
+    updateAxisX(0, actualEnd);
+  }
+
+  function onDragProgress() {
     const [start, end] = [timeDomainStart, timeDomainEnd];
-    let duration = -d3.event.dx * (actualEnd / 200);
+    let duration = -d3.event.dx * (actualEnd / dragFactor);
     updateAxisX(getDatePlusDuration(start, duration), getDatePlusDuration(end, duration), 0);
   }
 
@@ -320,10 +366,11 @@ d3.gantt = function () {
     if (dir === 'in') {
       var tempStart = getDatePlusDuration(start, diff);
       var tempEnd = getDatePlusDuration(end, -diff);
-      if ((tempEnd - tempStart) > 1000) {
+      // console.log(tempStart + "|" + tempEnd + "|" + unit);
+      if ((tempEnd - tempStart) > 10) {
         updateAxisX(getDatePlusDuration(start, diff), getDatePlusDuration(end, -diff));
         timeDomainStart = tempStart;
-        timeDomainEnd = tempEnd;
+        setEndTime(tempEnd);
       }
 
 
@@ -337,9 +384,9 @@ d3.gantt = function () {
         timeDomainStart = tempStart;
       }
       if (tempEnd > actualEnd) {
-        timeDomainEnd = actualEnd;
+        setEndTime(actualEnd);
       } else {
-        timeDomainEnd = tempEnd;
+        setEndTime(tempEnd);
       }
       updateAxisX(timeDomainStart, timeDomainEnd);
     }
@@ -348,8 +395,7 @@ d3.gantt = function () {
 
   function updateAxisX(start, end, animDuration = 200) {
     timeDomainStart = start;
-    timeDomainEnd = end;
-
+    setEndTime(end);
     const trans = d3.transition().ease(d3.easeLinear).duration(animDuration);
 
     scaleX.domain([start, end]);
@@ -371,7 +417,7 @@ d3.gantt = function () {
   function getDurationBetween(dateA, dateB) {
     return (dateB - dateA);
   }
-  
+
   function getDatePlusDuration(date, duration) {
     return date + duration;
   }

@@ -1,0 +1,39 @@
+<script>
+    var unitsTime = ["ps", "ns", "μs", "ms", "s", "min"];
+    // var timeInput=1709671589755;
+    var timeInput=1000000000;
+    var unit = getTimeUnit(timeInput);
+    var num = picosecondTo(unit, timeInput);
+    console.log(parseFloat(num).toFixed(2) + " " + unit);
+
+    function getTimeUnit(timeinPs) {
+        var digitGroups = 0;
+        if (timeinPs < 6e+13) {
+            digitGroups = parseInt(Math.log10(timeinPs) / Math.log10(1000));
+        }
+        return unitsTime[digitGroups];
+    }
+
+
+    function picosecondTo(unit, picoseconds) {
+
+        if (unit === "ps")
+            return picoseconds;
+        if (unit === "ns")
+            return picoseconds / 1000;
+        if (unit === "μs")
+            return picoseconds / 1000000;
+        if (unit === "ms")
+            return picoseconds / 1000000000;
+        if (unit === "s")
+            return picoseconds / 1000000000000;
+        if (unit === "min")
+            return 1.66666666667 * picoseconds / 100000000000000;
+        if (unit === "h")
+            return 2.77777777778 * picoseconds / 10000000000000000;
+
+    }
+
+
+
+</script>
