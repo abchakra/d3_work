@@ -42,7 +42,6 @@ d3.gantt = function () {
   var chart;
   var context;
   var brush;
-  var zoom;
   var unit;
   var svg, elMain, elDragZone, elContainer, elAxisX, elAxisY, elDateStartAll, mini;
   var dateStartAll = 0;
@@ -285,7 +284,7 @@ d3.gantt = function () {
       if (d.last) {
         return stat + " <br/> " + start.toUTCString() + " to now";
       }
-      return "Task :" + tName + " <br/> " + "Status :" + stat + " <br/> " + "<br/> Duration:" + start + " to " + end;
+      return "Processor :" + tName + " <br/> " + "Status :" + stat + " <br/> " + "<br/> Time:" + start + " -- " + end;
     });
 
 
@@ -411,6 +410,29 @@ d3.gantt = function () {
       .transition(trans)
       .select('.zone')
       .attr('width', d => scaleX(getEnd(d)) - scaleX(getStart(d)));
+
+
+
+    updateBrush(start, end);
+  }
+
+  function updateBrush(start, end) {
+    // console.log(start + "|" + end + "|" + brushScaleX(start) + "|" + brushScaleX(end));
+
+
+    brush.extent([brushScaleX(start),0], [brushScaleX(end),brushHeight]);
+    d3.select(".brush").transition();
+    d3.select('.brush').transition().call(brush.move, [brushScaleX(start), brushScaleX(end)]);
+
+    // d3.event.selection.call(brush.move, [brushScaleX(start), brushScaleX(end)])
+    // now draw the brush to match our extent
+    // use transition to slow it down so we can see what is happening
+    // remove transition so just d3.select(".brush") to just draw
+    // brush(d3.select(".brush").transition());
+
+    // now fire the brushstart, brushmove, and brushend events
+    // remove transition so just d3.select(".brush") to just draw
+    // brush.event(d3.select(".brush").transition().delay(1000))
   }
 
 

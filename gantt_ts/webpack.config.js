@@ -3,7 +3,7 @@ var webpack = require('webpack');
 var CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
-    entry: './app/js/index.ts',
+    entry: './app/ts/index.ts',
     output: {
         path: path.resolve(__dirname, 'build'),
         filename: 'main.bundle.js'
